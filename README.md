@@ -386,6 +386,15 @@ Khi deploy lên production:
 5. Sử dụng reverse proxy (nginx, Caddy)
 6. Implement rate limiting ở application level
 
+### GitHub Actions (Build Docker image tự động)
+
+- Workflow file: `.github/workflows/docker-build.yml`
+- Secrets cần thiết trong repository:
+  - `DOCKERHUB_USERNAME`
+  - `DOCKERHUB_TOKEN` (Docker Hub access token / password)
+- Image name: `x-fetch` (được push lên `docker.io/<username>/x-fetch`)
+- Workflow chạy khi push lên branch `main` hoặc trigger thủ công (workflow_dispatch)
+
 ## 🚦 Rate Limits
 
 Twitter API có các rate limits sau (Free tier):
