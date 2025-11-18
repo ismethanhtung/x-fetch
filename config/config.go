@@ -39,7 +39,7 @@ func LoadConfig() (*Config, error) {
 	config := &Config{
 		TwitterBearerToken:  getEnv("TWITTER_BEARER_TOKEN", ""),
 		ServerPort:          getEnv("SERVER_PORT", "8080"),
-		ServerHost:          getEnv("SERVER_HOST", "localhost"),
+		ServerHost:          getEnv("SERVER_HOST", "0.0.0.0"),
 		AppEnv:              getEnv("APP_ENV", "development"),
 		LogLevel:            getEnv("LOG_LEVEL", "info"),
 		MaxTweetsPerRequest: getEnvAsInt("MAX_TWEETS_PER_REQUEST", 100),

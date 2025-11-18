@@ -318,7 +318,7 @@ curl http://localhost:8080/api/docs
 | ------------------------ | ---------------------------------------- | ----------- | -------- |
 | `TWITTER_BEARER_TOKEN`   | Bearer token từ Twitter Developer Portal | -           | ✅ Yes   |
 | `SERVER_PORT`            | Port để chạy server                      | 8080        | No       |
-| `SERVER_HOST`            | Host để bind server                      | localhost   | No       |
+| `SERVER_HOST`            | Host để bind server                      | 0.0.0.0     | No       |
 | `APP_ENV`                | Environment (development/production)     | development | No       |
 | `LOG_LEVEL`              | Log level (debug/info/warn/error)        | info        | No       |
 | `MAX_TWEETS_PER_REQUEST` | Số lượng tweets tối đa mỗi request       | 100         | No       |

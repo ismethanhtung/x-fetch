@@ -3,7 +3,7 @@ TWITTER_BEARER_TOKEN=your_bearer_token_here
 
 # Server Configuration
 SERVER_PORT=8080
-SERVER_HOST=localhost
+SERVER_HOST=0.0.0.0
 
 # Application Configuration
 APP_ENV=development
