@@ -36,10 +36,31 @@ func LoadConfig() (*Config, error) {
 		log.Warn("Không tìm thấy file .env, sẽ sử dụng environment variables từ hệ thống")
 	}
 
+	// Detect nếu đang chạy trong container
+	// Kiểm tra nhiều cách để detect container environment
+	isContainer := os.Getenv("CONTAINER") == "true" || 
+		os.Getenv("DOCKER") == "true" ||
+		os.Getenv("KUBERNETES_SERVICE_HOST") != "" ||
+		fileExists("/.dockerenv")
+
+	// Default host: 0.0.0.0 cho container, 0.0.0.0 cho tất cả (để đảm bảo hoạt động trong container)
+	defaultHost := "0.0.0.0"
+	if isContainer {
+		log.Info("🔍 Phát hiện đang chạy trong container, đảm bảo SERVER_HOST=0.0.0.0")
+	}
+
+	serverHost := getEnv("SERVER_HOST", defaultHost)
+	
+	// Force 0.0.0.0 nếu đang trong container và host là localhost
+	if isContainer && (serverHost == "localhost" || serverHost == "127.0.0.1") {
+		log.Warnf("⚠️  Đang trong container nhưng SERVER_HOST=%s, tự động chuyển sang 0.0.0.0", serverHost)
+		serverHost = "0.0.0.0"
+	}
+
 	config := &Config{
 		TwitterBearerToken:  getEnv("TWITTER_BEARER_TOKEN", ""),
 		ServerPort:          getEnv("SERVER_PORT", "8080"),
-		ServerHost:          getEnv("SERVER_HOST", "0.0.0.0"),
+		ServerHost:          serverHost,
 		AppEnv:              getEnv("APP_ENV", "development"),
 		LogLevel:            getEnv("LOG_LEVEL", "info"),
 		MaxTweetsPerRequest: getEnvAsInt("MAX_TWEETS_PER_REQUEST", 100),
@@ -81,5 +102,14 @@ func getEnvAsInt(key string, defaultValue int) int {
 // GetAddress trả về địa chỉ server đầy đủ
 func (c *Config) GetAddress() string {
 	return fmt.Sprintf("%s:%s", c.ServerHost, c.ServerPort)
+}
+
+// fileExists kiểm tra xem file có tồn tại không
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
 

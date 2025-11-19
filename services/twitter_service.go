@@ -11,6 +11,12 @@ import (
 	"github.com/michimani/gotwi/resources"
 	"github.com/michimani/gotwi/tweet/timeline"
 	timelineTypes "github.com/michimani/gotwi/tweet/timeline/types"
+	"github.com/michimani/gotwi/tweet/like"
+	likeTypes "github.com/michimani/gotwi/tweet/like/types"
+	"github.com/michimani/gotwi/tweet/searchtweet"
+	searchTypes "github.com/michimani/gotwi/tweet/searchtweet/types"
+	"github.com/michimani/gotwi/tweet/tweetlookup"
+	lookupTypes "github.com/michimani/gotwi/tweet/tweetlookup/types"
 	"github.com/michimani/gotwi/user/follow"
 	followTypes "github.com/michimani/gotwi/user/follow/types"
 	"github.com/michimani/gotwi/user/userlookup"
@@ -392,4 +398,353 @@ func (s *TwitterService) convertToTweet(data *resources.Tweet) models.Tweet {
 	}
 
 	return tweet
+}
+
+// GetUserFollowers lấy danh sách người theo dõi (followers) của user
+func (s *TwitterService) GetUserFollowers(ctx context.Context, username string, maxResults int, paginationToken string) (*models.FollowersResponse, error) {
+	log.WithFields(log.Fields{
+		"username":    username,
+		"max_results": maxResults,
+		"page_token":  paginationToken,
+	}).Info("Đang lấy danh sách followers của user")
+
+	user, err := s.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+
+	if maxResults <= 0 {
+		maxResults = s.config.DefaultTweetsCount
+	}
+	if maxResults > 1000 {
+		maxResults = 1000
+	}
+
+	params := &followTypes.ListFollowersInput{
+		ID:         user.ID,
+		MaxResults: followTypes.ListMaxResults(maxResults),
+		UserFields: fields.UserFieldList{
+			fields.UserFieldID,
+			fields.UserFieldName,
+			fields.UserFieldUsername,
+			fields.UserFieldDescription,
+			fields.UserFieldProfileImageUrl,
+			fields.UserFieldVerified,
+			fields.UserFieldCreatedAt,
+			fields.UserFieldPublicMetrics,
+		},
+	}
+
+	if paginationToken != "" {
+		params.PaginationToken = paginationToken
+	}
+
+	resp, err := follow.ListFollowers(ctx, s.client, params)
+	if err != nil {
+		return nil, fmt.Errorf("không thể lấy danh sách followers: %w", err)
+	}
+
+	followers := make([]models.User, 0, len(resp.Data))
+	for i := range resp.Data {
+		followers = append(followers, *s.convertToUser(&resp.Data[i]))
+	}
+
+	result := &models.FollowersResponse{
+		User:      user,
+		Followers: followers,
+		Meta:      buildMetaFromPagination(resp.Meta, len(followers)),
+	}
+
+	log.WithFields(log.Fields{
+		"username":        username,
+		"followers_count": len(followers),
+	}).Info("Đã lấy danh sách followers thành công")
+
+	return result, nil
+}
+
+// SearchTweets tìm kiếm tweets theo keyword
+func (s *TwitterService) SearchTweets(ctx context.Context, query string, maxResults int) (*models.SearchTweetsResponse, error) {
+	log.WithFields(log.Fields{
+		"query":       query,
+		"max_results": maxResults,
+	}).Info("Đang tìm kiếm tweets")
+
+	if maxResults <= 0 {
+		maxResults = s.config.DefaultTweetsCount
+	}
+	if maxResults > 100 {
+		maxResults = 100
+	}
+
+	params := &searchTypes.ListRecentInput{
+		Query:      query,
+		MaxResults: searchTypes.ListMaxResults(maxResults),
+		TweetFields: fields.TweetFieldList{
+			fields.TweetFieldID,
+			fields.TweetFieldText,
+			fields.TweetFieldAuthorID,
+			fields.TweetFieldCreatedAt,
+			fields.TweetFieldPublicMetrics,
+			fields.TweetFieldEntities,
+			fields.TweetFieldReferencedTweets,
+		},
+	}
+
+	resp, err := searchtweet.ListRecent(ctx, s.client, params)
+	if err != nil {
+		return nil, fmt.Errorf("không thể tìm kiếm tweets: %w", err)
+	}
+
+	tweets := make([]models.Tweet, 0, len(resp.Data))
+	for i := range resp.Data {
+		tweet := s.convertToTweet(&resp.Data[i])
+		tweets = append(tweets, tweet)
+	}
+
+	result := &models.SearchTweetsResponse{
+		Tweets: tweets,
+		Meta:   buildMetaFromPagination(resp.Meta, len(tweets)),
+	}
+
+	log.WithFields(log.Fields{
+		"query":        query,
+		"tweets_count": len(tweets),
+	}).Info("Đã tìm kiếm tweets thành công")
+
+	return result, nil
+}
+
+// GetTweetByID lấy chi tiết tweet theo ID
+func (s *TwitterService) GetTweetByID(ctx context.Context, tweetID string) (*models.TweetDetailResponse, error) {
+	log.WithField("tweet_id", tweetID).Info("Đang lấy chi tiết tweet")
+
+	params := &lookupTypes.GetInput{
+		ID: tweetID,
+		TweetFields: fields.TweetFieldList{
+			fields.TweetFieldID,
+			fields.TweetFieldText,
+			fields.TweetFieldAuthorID,
+			fields.TweetFieldCreatedAt,
+			fields.TweetFieldPublicMetrics,
+			fields.TweetFieldEntities,
+			fields.TweetFieldReferencedTweets,
+		},
+		Expansions: fields.ExpansionList{
+			fields.ExpansionAuthorID,
+		},
+		UserFields: fields.UserFieldList{
+			fields.UserFieldID,
+			fields.UserFieldName,
+			fields.UserFieldUsername,
+			fields.UserFieldProfileImageUrl,
+			fields.UserFieldVerified,
+			fields.UserFieldPublicMetrics,
+		},
+	}
+
+	resp, err := tweetlookup.Get(ctx, s.client, params)
+	if err != nil {
+		return nil, fmt.Errorf("không thể lấy tweet: %w", err)
+	}
+
+	tweet := s.convertToTweet(&resp.Data)
+
+	result := &models.TweetDetailResponse{
+		Tweet: tweet,
+	}
+
+	// Nếu có thông tin author trong response
+	if len(resp.Includes.Users) > 0 {
+		result.Author = s.convertToUser(&resp.Includes.Users[0])
+	}
+
+	log.WithField("tweet_id", tweetID).Info("Đã lấy chi tiết tweet thành công")
+
+	return result, nil
+}
+
+// GetLikedTweets lấy danh sách tweets mà user đã like
+func (s *TwitterService) GetLikedTweets(ctx context.Context, username string, maxResults int) (*models.LikedTweetsResponse, error) {
+	log.WithFields(log.Fields{
+		"username":    username,
+		"max_results": maxResults,
+	}).Info("Đang lấy liked tweets")
+
+	user, err := s.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+
+	if maxResults <= 0 {
+		maxResults = s.config.DefaultTweetsCount
+	}
+	if maxResults > 100 {
+		maxResults = 100
+	}
+
+	params := &likeTypes.ListInput{
+		ID:         user.ID,
+		MaxResults: likeTypes.ListMaxResults(maxResults),
+		TweetFields: fields.TweetFieldList{
+			fields.TweetFieldID,
+			fields.TweetFieldText,
+			fields.TweetFieldAuthorID,
+			fields.TweetFieldCreatedAt,
+			fields.TweetFieldPublicMetrics,
+			fields.TweetFieldEntities,
+		},
+	}
+
+	resp, err := like.List(ctx, s.client, params)
+	if err != nil {
+		return nil, fmt.Errorf("không thể lấy liked tweets: %w", err)
+	}
+
+	tweets := make([]models.Tweet, 0, len(resp.Data))
+	for i := range resp.Data {
+		tweet := s.convertToTweet(&resp.Data[i])
+		tweets = append(tweets, tweet)
+	}
+
+	result := &models.LikedTweetsResponse{
+		User:   user,
+		Tweets: tweets,
+		Meta:   buildMetaFromPagination(resp.Meta, len(tweets)),
+	}
+
+	log.WithFields(log.Fields{
+		"username":     username,
+		"tweets_count": len(tweets),
+	}).Info("Đã lấy liked tweets thành công")
+
+	return result, nil
+}
+
+// SearchUsers tìm kiếm users theo query
+func (s *TwitterService) SearchUsers(ctx context.Context, query string, maxResults int) (*models.SearchUsersResponse, error) {
+	log.WithFields(log.Fields{
+		"query":       query,
+		"max_results": maxResults,
+	}).Info("Đang tìm kiếm users")
+
+	if maxResults <= 0 {
+		maxResults = s.config.DefaultTweetsCount
+	}
+	if maxResults > 100 {
+		maxResults = 100
+	}
+
+	// Twitter API v2 không hỗ trợ user search trực tiếp với Bearer token
+	// Thay vào đó, chúng ta sẽ tìm kiếm tweets với query và lấy unique authors
+	searchParams := &searchTypes.ListRecentInput{
+		Query:      query,
+		MaxResults: searchTypes.ListMaxResults(maxResults),
+		TweetFields: fields.TweetFieldList{
+			fields.TweetFieldAuthorID,
+		},
+		Expansions: fields.ExpansionList{
+			fields.ExpansionAuthorID,
+		},
+		UserFields: fields.UserFieldList{
+			fields.UserFieldID,
+			fields.UserFieldName,
+			fields.UserFieldUsername,
+			fields.UserFieldDescription,
+			fields.UserFieldProfileImageUrl,
+			fields.UserFieldVerified,
+			fields.UserFieldCreatedAt,
+			fields.UserFieldPublicMetrics,
+		},
+	}
+
+	resp, err := searchtweet.ListRecent(ctx, s.client, searchParams)
+	if err != nil {
+		return nil, fmt.Errorf("không thể tìm kiếm users: %w", err)
+	}
+
+	// Extract unique users from includes
+	usersMap := make(map[string]*models.User)
+	if len(resp.Includes.Users) > 0 {
+		for i := range resp.Includes.Users {
+			user := s.convertToUser(&resp.Includes.Users[i])
+			usersMap[user.ID] = user
+		}
+	}
+
+	users := make([]models.User, 0, len(usersMap))
+	for _, user := range usersMap {
+		users = append(users, *user)
+	}
+
+	result := &models.SearchUsersResponse{
+		Users: users,
+		Meta: &models.Meta{
+			ResultCount: len(users),
+		},
+	}
+
+	log.WithFields(log.Fields{
+		"query":       query,
+		"users_count": len(users),
+	}).Info("Đã tìm kiếm users thành công")
+
+	return result, nil
+}
+
+// GetUserMentions lấy danh sách tweets có mention đến user
+func (s *TwitterService) GetUserMentions(ctx context.Context, username string, maxResults int) (*models.MentionsResponse, error) {
+	log.WithFields(log.Fields{
+		"username":    username,
+		"max_results": maxResults,
+	}).Info("Đang lấy mentions của user")
+
+	user, err := s.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+
+	if maxResults <= 0 {
+		maxResults = s.config.DefaultTweetsCount
+	}
+	if maxResults > 100 {
+		maxResults = 100
+	}
+
+	params := &timelineTypes.ListMentionsInput{
+		ID:         user.ID,
+		MaxResults: timelineTypes.ListMaxResults(maxResults),
+		TweetFields: fields.TweetFieldList{
+			fields.TweetFieldID,
+			fields.TweetFieldText,
+			fields.TweetFieldAuthorID,
+			fields.TweetFieldCreatedAt,
+			fields.TweetFieldPublicMetrics,
+			fields.TweetFieldEntities,
+		},
+	}
+
+	resp, err := timeline.ListMentions(ctx, s.client, params)
+	if err != nil {
+		return nil, fmt.Errorf("không thể lấy mentions: %w", err)
+	}
+
+	tweets := make([]models.Tweet, 0, len(resp.Data))
+	for i := range resp.Data {
+		tweet := s.convertToTweet(&resp.Data[i])
+		tweets = append(tweets, tweet)
+	}
+
+	result := &models.MentionsResponse{
+		User:   user,
+		Tweets: tweets,
+		Meta:   buildMetaFromTimeline(resp.Meta, len(tweets)),
+	}
+
+	log.WithFields(log.Fields{
+		"username":     username,
+		"tweets_count": len(tweets),
+	}).Info("Đã lấy mentions thành công")
+
+	return result, nil
 }

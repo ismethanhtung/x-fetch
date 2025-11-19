@@ -2,6 +2,9 @@
 TWITTER_BEARER_TOKEN=your_bearer_token_here
 
 # Server Configuration
+# Lưu ý: Khi chạy trong Docker container, SERVER_HOST phải là 0.0.0.0 (không phải localhost)
+# 0.0.0.0 cho phép container nhận kết nối từ bên ngoài
+# localhost chỉ cho phép kết nối từ bên trong container
 SERVER_PORT=8080
 SERVER_HOST=0.0.0.0
 

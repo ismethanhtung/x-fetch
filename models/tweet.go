@@ -101,3 +101,42 @@ type ErrorResponse struct {
 	Code    int    `json:"code"`
 }
 
+// SearchTweetsResponse là response structure cho API tìm kiếm tweets
+type SearchTweetsResponse struct {
+	Tweets []Tweet `json:"tweets"`
+	Meta   *Meta   `json:"meta,omitempty"`
+}
+
+// TweetDetailResponse là response structure cho API lấy chi tiết tweet
+type TweetDetailResponse struct {
+	Tweet  Tweet `json:"tweet"`
+	Author *User `json:"author,omitempty"`
+}
+
+// FollowersResponse là response structure cho API lấy danh sách followers
+type FollowersResponse struct {
+	User      *User  `json:"user"`
+	Followers []User `json:"followers"`
+	Meta      *Meta  `json:"meta,omitempty"`
+}
+
+// LikedTweetsResponse là response structure cho API lấy liked tweets
+type LikedTweetsResponse struct {
+	User   *User   `json:"user"`
+	Tweets []Tweet `json:"tweets"`
+	Meta   *Meta   `json:"meta,omitempty"`
+}
+
+// SearchUsersResponse là response structure cho API tìm kiếm users
+type SearchUsersResponse struct {
+	Users []User `json:"users"`
+	Meta  *Meta  `json:"meta,omitempty"`
+}
+
+// MentionsResponse là response structure cho API lấy mentions
+type MentionsResponse struct {
+	User   *User   `json:"user"`
+	Tweets []Tweet `json:"tweets"`
+	Meta   *Meta   `json:"meta,omitempty"`
+}
+

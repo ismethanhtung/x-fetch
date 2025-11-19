@@ -32,6 +32,11 @@ COPY --from=builder /app/twitter-backend .
 # Expose port
 EXPOSE 8080
 
+# Set environment variables để đảm bảo server bind vào 0.0.0.0
+ENV SERVER_HOST=0.0.0.0
+ENV SERVER_PORT=8080
+ENV CONTAINER=true
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
