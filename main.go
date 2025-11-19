@@ -90,14 +90,30 @@ func setupRouter(tweetsHandler *handlers.TweetsHandler) *mux.Router {
 	api.HandleFunc("/user/{username}/followers", tweetsHandler.GetUserFollowers).Methods("GET")
 	api.HandleFunc("/user/{username}/liked", tweetsHandler.GetLikedTweets).Methods("GET")
 	api.HandleFunc("/user/{username}/mentions", tweetsHandler.GetUserMentions).Methods("GET")
+	api.HandleFunc("/user/{username}/timelines/reverse_chronological", tweetsHandler.GetUserTimelineReverseChronological).Methods("GET")
+	api.HandleFunc("/user/{username}/tweets", tweetsHandler.GetUserTweets).Methods("GET")
+	api.HandleFunc("/user/{username}/blocking", tweetsHandler.GetBlockingUsers).Methods("GET")
+	api.HandleFunc("/user/{username}/muting", tweetsHandler.GetMutingUsers).Methods("GET")
+
+	// Users routes
+	api.HandleFunc("/users", tweetsHandler.ListUsers).Methods("GET")
+	api.HandleFunc("/users/{user_id}", tweetsHandler.GetUserByID).Methods("GET")
+	api.HandleFunc("/users/by/username/{username}", tweetsHandler.GetUserInfo).Methods("GET")
+	api.HandleFunc("/users/me", tweetsHandler.GetMe).Methods("GET")
+	api.HandleFunc("/users/search", tweetsHandler.SearchUsers).Methods("GET")
+	api.HandleFunc("/users/reposts_of_me", tweetsHandler.GetRepostsOfMe).Methods("GET")
 
 	// Tweets routes
+	api.HandleFunc("/tweets", tweetsHandler.ListTweets).Methods("GET")
 	api.HandleFunc("/tweets/user/{username}", tweetsHandler.GetUserTweets).Methods("GET")
 	api.HandleFunc("/tweets/search", tweetsHandler.SearchTweets).Methods("GET")
+	api.HandleFunc("/tweets/search/recent", tweetsHandler.SearchTweets).Methods("GET")
 	api.HandleFunc("/tweets/{tweet_id}", tweetsHandler.GetTweetByID).Methods("GET")
-
-	// Users search route
-	api.HandleFunc("/users/search", tweetsHandler.SearchUsers).Methods("GET")
+	api.HandleFunc("/tweets/{tweet_id}/liking_users", tweetsHandler.GetLikingUsers).Methods("GET")
+	api.HandleFunc("/tweets/{tweet_id}/quote_tweets", tweetsHandler.GetQuoteTweets).Methods("GET")
+	api.HandleFunc("/tweets/{tweet_id}/retweeted_by", tweetsHandler.GetRetweetedBy).Methods("GET")
+	api.HandleFunc("/tweets/{tweet_id}/hidden", tweetsHandler.HideTweet).Methods("PUT")
+	api.HandleFunc("/tweets/counts/recent", tweetsHandler.GetTweetCounts).Methods("GET")
 
 	// API documentation endpoint
 	api.HandleFunc("/docs", handleAPIDocs).Methods("GET")
@@ -543,6 +559,7 @@ func getTestPageHTML() string {
         <div class="header">
             <h1>🐦 X/Twitter API Testing Dashboard</h1>
             <p>Công cụ test API X/Twitter - Miễn phí & Không giới hạn</p>
+            <p style="font-size: 0.9em; margin-top: 10px; color: #888;">📊 Tổng cộng: <strong>22 APIs</strong> sẵn sàng để test</p>
         </div>
 
         <div class="api-grid">
@@ -681,6 +698,178 @@ func getTestPageHTML() string {
                 </div>
                 <button class="btn" onclick="searchUsers()">Tìm Users</button>
             </div>
+
+            <!-- List Tweets API -->
+            <div class="api-card">
+                <h3><span class="icon">📋</span> Danh sách Tweets</h3>
+                <p>Lấy danh sách tweets theo IDs</p>
+                <div class="endpoint">GET /api/tweets?ids=123,456</div>
+                <div class="form-group">
+                    <label>Tweet IDs (comma-separated)</label>
+                    <input type="text" id="list-tweets-ids" placeholder="1234567890,9876543210">
+                </div>
+                <button class="btn" onclick="listTweets()">Lấy Tweets</button>
+            </div>
+
+            <!-- Liking Users API -->
+            <div class="api-card" style="border-left: 4px solid #ff9800;">
+                <h3><span class="icon">👍</span> Users đã Like <span style="font-size: 0.7em; color: #ff9800;">⚠️ Limited</span></h3>
+                <p>Lấy danh sách users đã like một tweet <strong style="color: #ff9800;">(Có thể yêu cầu OAuth)</strong></p>
+                <div class="endpoint">GET /api/tweets/{id}/liking_users</div>
+                <div class="form-group">
+                    <label>Tweet ID</label>
+                    <input type="text" id="liking-users-tweet-id" placeholder="1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng (max: 100)</label>
+                    <input type="number" id="liking-users-count" value="10" min="1" max="100">
+                </div>
+                <button class="btn" onclick="getLikingUsers()">Xem Liking Users</button>
+            </div>
+
+            <!-- Quote Tweets API -->
+            <div class="api-card">
+                <h3><span class="icon">💬</span> Quote Tweets</h3>
+                <p>Lấy danh sách quote tweets của một tweet</p>
+                <div class="endpoint">GET /api/tweets/{id}/quote_tweets</div>
+                <div class="form-group">
+                    <label>Tweet ID</label>
+                    <input type="text" id="quote-tweets-tweet-id" placeholder="1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng (max: 100)</label>
+                    <input type="number" id="quote-tweets-count" value="10" min="1" max="100">
+                </div>
+                <button class="btn" onclick="getQuoteTweets()">Xem Quote Tweets</button>
+            </div>
+
+            <!-- Retweeted By API -->
+            <div class="api-card">
+                <h3><span class="icon">🔄</span> Retweeted By</h3>
+                <p>Lấy danh sách users đã retweet</p>
+                <div class="endpoint">GET /api/tweets/{id}/retweeted_by</div>
+                <div class="form-group">
+                    <label>Tweet ID</label>
+                    <input type="text" id="retweeted-by-tweet-id" placeholder="1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng (max: 100)</label>
+                    <input type="number" id="retweeted-by-count" value="10" min="1" max="100">
+                </div>
+                <button class="btn" onclick="getRetweetedBy()">Xem Retweeted By</button>
+            </div>
+
+            <!-- Tweet Counts API -->
+            <div class="api-card">
+                <h3><span class="icon">📊</span> Tweet Counts</h3>
+                <p>Lấy số lượng tweets theo query và time range</p>
+                <div class="endpoint">GET /api/tweets/counts/recent</div>
+                <div class="form-group">
+                    <label>Query</label>
+                    <input type="text" id="tweet-counts-query" placeholder="golang" value="golang">
+                </div>
+                <div class="form-group">
+                    <label>Start Time (RFC3339)</label>
+                    <input type="text" id="tweet-counts-start" placeholder="2024-01-01T00:00:00Z">
+                </div>
+                <div class="form-group">
+                    <label>End Time (RFC3339)</label>
+                    <input type="text" id="tweet-counts-end" placeholder="2024-01-02T00:00:00Z">
+                </div>
+                <button class="btn" onclick="getTweetCounts()">Lấy Counts</button>
+            </div>
+
+            <!-- List Users API -->
+            <div class="api-card">
+                <h3><span class="icon">👥</span> Danh sách Users</h3>
+                <p>Lấy danh sách users theo IDs</p>
+                <div class="endpoint">GET /api/users?ids=123,456</div>
+                <div class="form-group">
+                    <label>User IDs (comma-separated)</label>
+                    <input type="text" id="list-users-ids" placeholder="44196397,12345678">
+                </div>
+                <button class="btn" onclick="listUsers()">Lấy Users</button>
+            </div>
+
+            <!-- User By ID API -->
+            <div class="api-card">
+                <h3><span class="icon">🆔</span> User theo ID</h3>
+                <p>Lấy thông tin user theo ID</p>
+                <div class="endpoint">GET /api/users/{user_id}</div>
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="user-by-id" placeholder="44196397">
+                </div>
+                <button class="btn" onclick="getUserByID()">Lấy User</button>
+            </div>
+
+            <!-- Get Me API -->
+            <div class="api-card">
+                <h3><span class="icon">👤</span> Authenticated User</h3>
+                <p>Lấy thông tin authenticated user</p>
+                <div class="endpoint">GET /api/users/me</div>
+                <button class="btn" onclick="getMe()">Lấy Thông tin</button>
+            </div>
+
+            <!-- Blocking Users API -->
+            <div class="api-card" style="border-left: 4px solid #ff9800;">
+                <h3><span class="icon">🚫</span> Blocking Users <span style="font-size: 0.7em; color: #ff9800;">⚠️ OAuth Required</span></h3>
+                <p>Lấy danh sách users bị block <strong style="color: #ff9800;">(Yêu cầu OAuth 1.0a)</strong></p>
+                <div class="endpoint">GET /api/users/{username}/blocking</div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="blocking-username" placeholder="elonmusk" value="elonmusk">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng (max: 1000)</label>
+                    <input type="number" id="blocking-count" value="10" min="1" max="1000">
+                </div>
+                <button class="btn" onclick="getBlockingUsers()">Xem Blocking</button>
+            </div>
+
+            <!-- Muting Users API -->
+            <div class="api-card" style="border-left: 4px solid #ff9800;">
+                <h3><span class="icon">🔇</span> Muting Users <span style="font-size: 0.7em; color: #ff9800;">⚠️ OAuth Required</span></h3>
+                <p>Lấy danh sách users bị mute <strong style="color: #ff9800;">(Yêu cầu OAuth 1.0a)</strong></p>
+                <div class="endpoint">GET /api/users/{username}/muting</div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="muting-username" placeholder="elonmusk" value="elonmusk">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng (max: 1000)</label>
+                    <input type="number" id="muting-count" value="10" min="1" max="1000">
+                </div>
+                <button class="btn" onclick="getMutingUsers()">Xem Muting</button>
+            </div>
+
+            <!-- Timeline Reverse Chronological API -->
+            <div class="api-card">
+                <h3><span class="icon">⏰</span> Timeline Reverse</h3>
+                <p>Lấy timeline reverse chronological</p>
+                <div class="endpoint">GET /api/users/{username}/timelines/reverse_chronological</div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="timeline-username" placeholder="elonmusk" value="elonmusk">
+                </div>
+                <div class="form-group">
+                    <label>Số lượng (max: 100)</label>
+                    <input type="number" id="timeline-count" value="10" min="1" max="100">
+                </div>
+                <button class="btn" onclick="getTimeline()">Xem Timeline</button>
+            </div>
+
+            <!-- Reposts Of Me API -->
+            <div class="api-card" style="border-left: 4px solid #ff9800;">
+                <h3><span class="icon">📤</span> Reposts Of Me <span style="font-size: 0.7em; color: #ff9800;">⚠️ OAuth Required</span></h3>
+                <p>Lấy reposts của authenticated user <strong style="color: #ff9800;">(Yêu cầu OAuth 1.0a)</strong></p>
+                <div class="endpoint">GET /api/users/reposts_of_me</div>
+                <div class="form-group">
+                    <label>Số lượng (max: 100)</label>
+                    <input type="number" id="reposts-count" value="10" min="1" max="100">
+                </div>
+                <button class="btn" onclick="getRepostsOfMe()">Xem Reposts</button>
+            </div>
         </div>
 
         <div class="response-section">
@@ -703,7 +892,27 @@ func getTestPageHTML() string {
 
             try {
                 const response = await fetch(url);
-                const data = await response.json();
+                let data;
+                
+                // Thử parse JSON, nếu không được thì lấy text
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        const text = await response.text();
+                        loadingDiv.classList.remove('active');
+                        responseDiv.innerHTML = '<div class="error">❌ Lỗi parse JSON: ' + e.message + '</div>\n\n' + 
+                            '<pre>' + text.substring(0, 500) + '</pre>';
+                        return;
+                    }
+                } else {
+                    const text = await response.text();
+                    loadingDiv.classList.remove('active');
+                    responseDiv.innerHTML = '<div class="error">❌ Response không phải JSON</div>\n\n' + 
+                        '<pre>' + text.substring(0, 500) + '</pre>';
+                    return;
+                }
 
                 loadingDiv.classList.remove('active');
 
@@ -711,12 +920,26 @@ func getTestPageHTML() string {
                     responseDiv.innerHTML = '<div class="success">✅ ' + description + ' thành công!</div>\n\n' + 
                         JSON.stringify(data, null, 2);
                 } else {
-                    responseDiv.innerHTML = '<div class="error">❌ Lỗi: ' + (data.message || 'Không xác định') + '</div>\n\n' + 
+                    // Kiểm tra nếu là lỗi OAuth required
+                    const errorMsg = data.message || 'Không xác định';
+                    let errorClass = 'error';
+                    let errorIcon = '❌';
+                    
+                    if (errorMsg.includes('OAuth') || errorMsg.includes('403') || errorMsg.includes('Forbidden')) {
+                        errorClass = 'error';
+                        errorIcon = '⚠️';
+                    }
+                    
+                    responseDiv.innerHTML = '<div class="' + errorClass + '">' + errorIcon + ' ' + errorMsg + '</div>\n\n' + 
                         JSON.stringify(data, null, 2);
                 }
             } catch (error) {
                 loadingDiv.classList.remove('active');
-                responseDiv.innerHTML = '<div class="error">❌ Lỗi kết nối: ' + error.message + '</div>';
+                let errorMsg = error.message;
+                if (errorMsg.includes('JSON') && errorMsg.includes('position')) {
+                    errorMsg = 'Lỗi parse JSON - Response không hợp lệ. Có thể API yêu cầu OAuth hoặc có giới hạn với Bearer Token.';
+                }
+                responseDiv.innerHTML = '<div class="error">❌ Lỗi: ' + errorMsg + '</div>';
             }
         }
 
@@ -806,6 +1029,116 @@ func getTestPageHTML() string {
                 return;
             }
             makeRequest('/api/users/search?q=' + encodeURIComponent(query) + '&count=' + count, 'Tìm kiếm users');
+        }
+
+        function listTweets() {
+            const ids = document.getElementById('list-tweets-ids').value;
+            if (!ids) {
+                alert('Vui lòng nhập Tweet IDs!');
+                return;
+            }
+            makeRequest('/api/tweets?ids=' + encodeURIComponent(ids), 'Lấy danh sách tweets');
+        }
+
+        function getLikingUsers() {
+            const tweetId = document.getElementById('liking-users-tweet-id').value;
+            const count = document.getElementById('liking-users-count').value;
+            if (!tweetId) {
+                alert('Vui lòng nhập Tweet ID!');
+                return;
+            }
+            makeRequest('/api/tweets/' + tweetId + '/liking_users?count=' + count, 'Lấy liking users');
+        }
+
+        function getQuoteTweets() {
+            const tweetId = document.getElementById('quote-tweets-tweet-id').value;
+            const count = document.getElementById('quote-tweets-count').value;
+            if (!tweetId) {
+                alert('Vui lòng nhập Tweet ID!');
+                return;
+            }
+            makeRequest('/api/tweets/' + tweetId + '/quote_tweets?count=' + count, 'Lấy quote tweets');
+        }
+
+        function getRetweetedBy() {
+            const tweetId = document.getElementById('retweeted-by-tweet-id').value;
+            const count = document.getElementById('retweeted-by-count').value;
+            if (!tweetId) {
+                alert('Vui lòng nhập Tweet ID!');
+                return;
+            }
+            makeRequest('/api/tweets/' + tweetId + '/retweeted_by?count=' + count, 'Lấy retweeted by');
+        }
+
+        function getTweetCounts() {
+            const query = document.getElementById('tweet-counts-query').value;
+            const startTime = document.getElementById('tweet-counts-start').value;
+            const endTime = document.getElementById('tweet-counts-end').value;
+            if (!query) {
+                alert('Vui lòng nhập query!');
+                return;
+            }
+            let url = '/api/tweets/counts/recent?q=' + encodeURIComponent(query);
+            if (startTime) url += '&start_time=' + encodeURIComponent(startTime);
+            if (endTime) url += '&end_time=' + encodeURIComponent(endTime);
+            makeRequest(url, 'Lấy tweet counts');
+        }
+
+        function listUsers() {
+            const ids = document.getElementById('list-users-ids').value;
+            if (!ids) {
+                alert('Vui lòng nhập User IDs!');
+                return;
+            }
+            makeRequest('/api/users?ids=' + encodeURIComponent(ids), 'Lấy danh sách users');
+        }
+
+        function getUserByID() {
+            const userId = document.getElementById('user-by-id').value;
+            if (!userId) {
+                alert('Vui lòng nhập User ID!');
+                return;
+            }
+            makeRequest('/api/users/' + userId, 'Lấy user theo ID');
+        }
+
+        function getMe() {
+            makeRequest('/api/users/me', 'Lấy authenticated user');
+        }
+
+        function getBlockingUsers() {
+            const username = document.getElementById('blocking-username').value;
+            const count = document.getElementById('blocking-count').value;
+            if (!username) {
+                alert('Vui lòng nhập username!');
+                return;
+            }
+            makeRequest('/api/users/' + username + '/blocking?count=' + count, 'Lấy blocking users');
+        }
+
+        function getMutingUsers() {
+            const username = document.getElementById('muting-username').value;
+            const count = document.getElementById('muting-count').value;
+            if (!username) {
+                alert('Vui lòng nhập username!');
+                return;
+            }
+            makeRequest('/api/users/' + username + '/muting?count=' + count, 'Lấy muting users');
+        }
+
+        function getTimeline() {
+            const username = document.getElementById('timeline-username').value;
+            const count = document.getElementById('timeline-count').value;
+            if (!username) {
+                alert('Vui lòng nhập username!');
+                return;
+            }
+            makeRequest('/api/users/' + username + '/timelines/reverse_chronological?count=' + count, 'Lấy timeline');
+        }
+
+        function getRepostsOfMe() {
+            const count = document.getElementById('reposts-count').value;
+            makeRequest('/api/users/reposts_of_me?count=' + count, 'Lấy reposts of me');
         }
     </script>
 </body>

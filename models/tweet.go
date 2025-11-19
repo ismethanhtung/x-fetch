@@ -140,3 +140,72 @@ type MentionsResponse struct {
 	Meta   *Meta   `json:"meta,omitempty"`
 }
 
+// LikingUsersResponse là response structure cho API lấy users đã like tweet
+type LikingUsersResponse struct {
+	TweetID string `json:"tweet_id"`
+	Users   []User `json:"users"`
+	Meta    *Meta  `json:"meta,omitempty"`
+}
+
+// QuoteTweetsResponse là response structure cho API lấy quote tweets
+type QuoteTweetsResponse struct {
+	TweetID string  `json:"tweet_id"`
+	Tweets  []Tweet `json:"tweets"`
+	Meta    *Meta   `json:"meta,omitempty"`
+}
+
+// RetweetedByResponse là response structure cho API lấy users đã retweet
+type RetweetedByResponse struct {
+	TweetID string `json:"tweet_id"`
+	Users   []User `json:"users"`
+	Meta    *Meta  `json:"meta,omitempty"`
+}
+
+// TweetCountsResponse là response structure cho API lấy tweet counts
+type TweetCountsResponse struct {
+	Query       string         `json:"query"`
+	Counts     []TweetCount   `json:"counts"`
+	Meta       *Meta          `json:"meta,omitempty"`
+}
+
+// TweetCount chứa thông tin count của tweet trong một khoảng thời gian
+type TweetCount struct {
+	Start      time.Time `json:"start"`
+	End        time.Time `json:"end"`
+	TweetCount int       `json:"tweet_count"`
+}
+
+// UsersListResponse là response structure cho API lấy danh sách users
+type UsersListResponse struct {
+	Users []User `json:"users"`
+	Meta  *Meta  `json:"meta,omitempty"`
+}
+
+// BlockingUsersResponse là response structure cho API lấy blocking users
+type BlockingUsersResponse struct {
+	User   *User  `json:"user"`
+	Users  []User `json:"users"`
+	Meta   *Meta  `json:"meta,omitempty"`
+}
+
+// MutingUsersResponse là response structure cho API lấy muting users
+type MutingUsersResponse struct {
+	User   *User  `json:"user"`
+	Users  []User `json:"users"`
+	Meta   *Meta  `json:"meta,omitempty"`
+}
+
+// HideTweetResponse là response structure cho API hide/unhide tweet
+type HideTweetResponse struct {
+	TweetID string `json:"tweet_id"`
+	Hidden  bool   `json:"hidden"`
+	Message string `json:"message,omitempty"`
+}
+
+// RepostsResponse là response structure cho API lấy reposts
+type RepostsResponse struct {
+	User   *User   `json:"user"`
+	Tweets []Tweet `json:"tweets"`
+	Meta   *Meta   `json:"meta,omitempty"`
+}
+
